@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planilha Financeira Web</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root {
+            --primary: #2c3e50; --success: #27ae60; --danger: #e74c3c;
+            --light: rgba(244, 247, 246, 0.85); --accent: #2980b9;
+        }
+        
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background-image: url('beach-blue-sky-boat-88212.jpg'); 
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            padding: 20px 10px; 
+            display: flex; 
+            justify-content: center; 
+            margin: 0;
+        }
+
+        .container { 
+            width: 100%; 
+            max-width: 850px; 
+            background: rgba(255, 255, 255, 0.9); 
+            padding: 25px; 
+            border-radius: 15px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); 
+            backdrop-filter: blur(4px);
+        }
+
+        .relogio-box {
+            text-align: center;
+            background: var(--primary);
+            color: white;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        #data-atual { font-size: 1rem; font-weight: 300; text-transform: capitalize; }
+        #hora-atual { font-size: 1.8rem; font-weight: bold; display: block; letter-spacing: 2px; }
+
+        .header-actions { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+        .section { margin-bottom: 25px; border: 1px solid rgba(0,0,0,0.1); padding: 15px; border-radius: 10px; background: rgba(255, 255, 255, 0.7); }
+        h2 { margin-top: 0; font-size: 1.1rem; color: var(--primary); border-bottom: 2px solid var(--accent); display: inline-block; padding-bottom: 5px; }
+        
+        .input-group { display: grid; grid-template-columns: 60px 2fr 1fr 1fr auto; gap: 8px; margin-bottom: 8px; align-items: center; }
+        input, select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; box-sizing: border-box; }
+        button { cursor: pointer; border: none; border-radius: 4px; padding: 8px 12px; transition: 0.2s; color: white; font-weight: bold; }
+        
+        .btn-add { background: var(--accent); width: 100%; margin-top: 5px; }
+        .btn-add-renda { background: var(--success); width: 100%; margin-top: 5px; }
+        .btn-remove { background: var(--danger); }
+        .btn-save { background: #34495e; font-size: 13px; }
+        .btn-load { background: #8e44ad; font-size: 13px; }
+        .btn-pdf { background: var(--success); width: 100%; font-size: 16px; margin-top: 20px; height: 50px; width: 100%; }
+        
+        .summary { margin-top: 20px; padding: 15px; background: var(--primary); color: white; border-radius: 10px; }
+        .total-value { font-size: 1.4rem; font-weight: bold; }
+        .positivo { color: #55efc4; }
+        .negativo { color: #ff7675; }
+
+        .periodo-seletor { display: flex; gap: 10px; margin-bottom: 15px; }
+        .periodo-seletor div { flex: 1; }
+        label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px; color: var(--primary); }
+
+        @media (max-width: 600px) { 
+            .input-group { grid-template-columns: 1fr; gap: 5px; }
+            .btn-remove { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container" id="app-financeiro">
+    <div class="relogio-box">
+        <span id="data-atual">Carregando data...</span>
+        <span id="hora-atual">00:00:00</span>
+    </div>
+
+    <h1 style="text-align: center; color: var(--primary); margin-bottom: 5px; margin-top: 0;">Minhas Finanças</h1>
+    <p style="text-align: center; font-size: 12px; color: #555; margin-bottom: 20px;">Atualização automática e salvamento dinâmico</p>
+    
+    <div class="header-actions">
+        <button class="btn-save" onclick="exportarJSON()">💾 Guardar Ficheiro (.json)</button>
+        <button class="btn-load" onclick="document.getElementById('fileInput').click()">📂 Carregar Ficheiro</button>
+        <input type="file" id="fileInput" style="display: none;" accept=".json" onchange="importarJSON(event)">
+    </div>
+
+    <div class="section">
+        <h2>Período e Renda Base</h2>
+        <div class="periodo-seletor">
+            <div>
+                <label>Mês:</label>
+                <select id="mes-ref" onchange="salvarAuto()">
+                    <option value="Janeiro">Janeiro</option><option value="Fevereiro">Fevereiro</option>
+                    <option value="Marco">Março</option><option value="Abril">Abril</option>
+                    <option value="Maio">Maio</option><option value="Junho">Junho</option>
+                    <option value="Julho">Julho</option><option value="Agosto">Agosto</option>
+                    <option value="Setembro">Setembro</option><option value="Outubro">Outubro</option>
+                    <option value="Novembro">Novembro</option><option value="Dezembro">Dezembro</option>
+                </select>
+            </div>
+            <div>
+                <label>Ano:</label>
+                <input type="number" id="ano-ref" value="2024" oninput="salvarAuto()">
+            </div>
+        </div>
+        <label>Renda Fixa Mensal (Salário):</label>
+        <input type="number" id="renda-total" placeholder="Ex: 5000" oninput="salvarAuto()">
+    </div>
+
+    <div class="section" style="border-left: 5px solid var(--success);">
+        <h2>Rendas Extra / Entradas</h2>
+        <div id="lista-rendas"></div>
+        <button class="btn-add-renda" onclick="novaLinha('lista-rendas', 'renda')">+ Adicionar Renda Extra</button>
+    </div>
+
+    <div class="section">
+        <h2>Gastos Fixos</h2>
+        <div id="lista-fixos"></div>
+        <button class="btn-add" onclick="novaLinha('lista-fixos', 'fixo')">+ Adicionar Gasto Fixo</button>
+    </div>
+
+    <div class="section">
+        <h2>Cartão de Crédito</h2>
+        <div id="lista-cartao"></div>
+        <button class="btn-add" onclick="novaLinha('lista-cartao', 'cartao')">+ Adicionar Item Cartão</button>
+    </div>
+
+    <div class="section">
+        <h2>Gastos Esporádicos</h2>
+        <div id="lista-esporadicos"></div>
+        <button class="btn-add" onclick="novaLinha('lista-esporadicos', 'esporadico')">+ Adicionar Esporádico</button>
+    </div>
+
+    <div class="summary">
+        <div style="display: flex; justify-content: space-between;">
+            <div>
+                <div>Total Entradas:</div>
+                <div id="total-entradas" style="color: #55efc4; font-weight: bold;">R$ 0,00</div>
+            </div>
+            <div style="text-align: right;">
+                <div>Total Saídas:</div>
+                <div id="total-gastos" style="color: #ff7675; font-weight: bold;">R$ 0,00</div>
+            </div>
+        </div>
+        <hr style="opacity: 0.2; margin: 10px 0;">
+        <div>Saldo Final:</div>
+        <div id="saldo-final" class="total-value">R$ 0,00</div>
+    </div>
+
+    <button class="btn-pdf" onclick="gerarPDF()">📄 Exportar Relatório em PDF</button>
+</div>
+
+<script>
+    function atualizarRelogio() {
+        const agora = new Date();
+        const opcoesData = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+        document.getElementById('data-atual').textContent = agora.toLocaleDateString('pt-BR', opcoesData);
+        const hora = String(agora.getHours()).padStart(2, '0');
+        const minuto = String(agora.getMinutes()).padStart(2, '0');
+        const segundo = String(agora.getSeconds()).padStart(2, '0');
+        document.getElementById('hora-atual').textContent = `${hora}:${minuto}:${segundo}`;
+    }
+    setInterval(atualizarRelogio, 1000);
+    atualizarRelogio();
+
+    function novaLinha(containerId, tipo, dados = { dia: '', desc: '', valor: '', cat: 'comida' }) {
+        const container = document.getElementById(containerId);
+        const div = document.createElement('div');
+        div.className = 'input-group';
+        div.dataset.tipo = tipo;
+        let extraCol = tipo === 'esporadico' ? `
+            <select class="cat-item" onchange="salvarAuto()">
+                <option value="comida" ${dados.cat === 'comida' ? 'selected' : ''}>Comida</option>
+                <option value="lazer" ${dados.cat === 'lazer' ? 'selected' : ''}>Lazer</option>
+                <option value="saude" ${dados.cat === 'saude' ? 'selected' : ''}>Saúde</option>
+            </select>` : `<span></span>`;
+        div.innerHTML = `
+            <input type="number" class="dia-item" placeholder="Dia" min="1" max="31" value="${dados.dia || ''}" oninput="salvarAuto()">
+            <input type="text" class="desc-item" placeholder="Descrição" value="${dados.desc}" oninput="salvarAuto()">
+            <input type="number" class="valor-item" placeholder="R$" value="${dados.valor}" oninput="salvarAuto()">
+            ${extraCol}
+            <button class="btn-remove" onclick="this.parentElement.remove(); salvarAuto();">Remover</button>
+        `;
+        container.appendChild(div);
+        salvarAuto();
+    }
+
+    function salvarAuto() {
+        const payload = {
+            mes: document.getElementById('mes-ref').value,
+            ano: document.getElementById('ano-ref').value,
+            renda: document.getElementById('renda-total').value,
+            itens: []
+        };
+        document.querySelectorAll('.input-group').forEach(el => {
+            payload.itens.push({
+                pai: el.parentElement.id,
+                tipo: el.dataset.tipo,
+                dia: el.querySelector('.dia-item').value,
+                desc: el.querySelector('.desc-item').value,
+                valor: el.querySelector('.valor-item').value,
+                cat: el.querySelector('.cat-item')?.value || null
+            });
+        });
+        localStorage.setItem('financas_v2', JSON.stringify(payload));
+        calcular();
+    }
+
+    function calcular() {
+        let totalSaidas = 0, totalRendasExtra = 0;
+        document.querySelectorAll('.input-group').forEach(el => {
+            const valor = parseFloat(el.querySelector('.valor-item').value) || 0;
+            if (el.dataset.tipo === 'renda') totalRendasExtra += valor;
+            else totalSaidas += valor;
+        });
+        const rendaFixa = parseFloat(document.getElementById('renda-total').value) || 0;
+        const totalEntradas = rendaFixa + totalRendasExtra;
+        const saldo = totalEntradas - totalSaidas;
+        document.getElementById('total-entradas').innerText = `R$ ${totalEntradas.toFixed(2)}`;
+        document.getElementById('total-gastos').innerText = `R$ ${totalSaidas.toFixed(2)}`;
+        const sElem = document.getElementById('saldo-final');
+        sElem.innerText = `R$ ${saldo.toFixed(2)}`;
+        sElem.className = 'total-value ' + (saldo >= 0 ? 'positivo' : 'negativo');
+    }
+
+    function carregar() {
+        const raw = localStorage.getItem('financas_v2');
+        if (raw) {
+            const data = JSON.parse(raw);
+            document.getElementById('mes-ref').value = data.mes;
+            document.getElementById('ano-ref').value = data.ano;
+            document.getElementById('renda-total').value = data.renda;
+            ['lista-rendas', 'lista-fixos', 'lista-cartao', 'lista-esporadicos'].forEach(id => document.getElementById(id).innerHTML = '');
+            data.itens.forEach(i => novaLinha(i.pai, i.tipo, i));
+        } else {
+            ['lista-rendas', 'lista-fixos', 'lista-cartao', 'lista-esporadicos'].forEach(id => {
+                const tipo = id.includes('renda') ? 'renda' : id.includes('fixo') ? 'fixo' : id.includes('cartao') ? 'cartao' : 'esporadico';
+                novaLinha(id, tipo);
+            });
+        }
+        calcular();
+    }
+
+    // NOVA FUNÇÃO DE EXPORTAÇÃO COM NOME DINÂMICO
+    function exportarJSON() {
+        const data = localStorage.getItem('financas_v2');
+        const mes = document.getElementById('mes-ref').value;
+        const dia = String(new Date().getDate()).padStart(2, '0');
+        
+        const nomeArquivo = `financas_${mes}_dia${dia}.json`;
+        
+        const blob = new Blob([data], {type: 'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = nomeArquivo;
+        a.click();
+    }
+
+    function importarJSON(e) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            localStorage.setItem('financas_v2', event.target.result);
+            location.reload();
+        };
+        reader.readAsText(e.target.files[0]);
+    }
+
+    function gerarPDF() {
+        const container = document.getElementById('app-financeiro');
+        const btns = document.querySelectorAll('button, .header-actions');
+        btns.forEach(b => b.style.display = 'none');
+        const opt = {
+            margin: 10,
+            filename: `Relatorio_Financas_${document.getElementById('mes-ref').value}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(container).save().then(() => btns.forEach(b => b.style.display = ''));
+    }
+
+    window.onload = carregar;
+</script>
+</body>
+</html>
